@@ -97,6 +97,28 @@ func TestThetaSketch_Intersection(t *testing.T) {
 	fmt.Println("other_unique id count: ", otherUniques, ", actual id count: ", expected, ", diff: ", diff)
 }
 
+func TestThetaSketch_Bytes(t *testing.T) {
+	sk := NewThetaSketch(65532)
+	expected := 10000000
+	for i:=0; i<expected; i++ {
+		sk.Add("hello world"+strconv.Itoa(i))
+	}
+	fmt.Println(len(sk.Bytes()))
+}
+
+func TestNewThetaSketchFromBytes(t *testing.T) {
+	sk := NewThetaSketch(65532)
+	expected := 10000000
+	for i:=0; i<expected; i++ {
+		sk.Add("hello world"+strconv.Itoa(i))
+	}
+	buf := sk.Bytes()
+	new_sk, err := NewThetaSketchFromBytes(buf)
+	if err != nil {
+		t.Error(err)
+	}
+	fmt.Println(new_sk.Uniques())
+}
 
 func BenchmarkNewThetaSketch(b *testing.B) {
 	sk := NewThetaSketch(65532)

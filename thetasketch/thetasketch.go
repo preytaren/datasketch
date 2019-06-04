@@ -1,6 +1,9 @@
 package thetasketch
 
 import (
+	"bytes"
+	"encoding/binary"
+	"fmt"
 	"github.com/spaolacci/murmur3"
 	"hash"
 	"math"
@@ -16,7 +19,7 @@ type Sketch interface {
 	Union(Sketch) Sketch
 	Sub(Sketch) Sketch
 	Intersection(Sketch) Sketch
-	copy() Sketch
+	Bytes() []byte
 }
 
 
@@ -32,6 +35,22 @@ func NewThetaSketch(precision int) Sketch {
 	}
 
 	return &ThetaSketch{precision:precision, heap:NewHeap(precision), hashObj:murmur3.New64()}
+}
+
+func NewThetaSketchFromBytes(input []byte) (Sketch, error) {
+	if len(input) % 8 != 0 {
+		return nil, fmt.Errorf("invalid length thetasketch bytes")
+	}
+	data := make([]uint64, len(input)/8)
+	err := binary.Read(bytes.NewBuffer(input), binary.BigEndian, data)
+	if err != nil || len(data) == 0 {
+		return nil, fmt.Errorf("invalid format thetasketch bytes %s", err)
+	}
+	sk := NewThetaSketch(int(data[0])).(*ThetaSketch)
+	for _, e := range data[1:] {
+		sk.heap.Push(e)
+	}
+	return sk, nil
 }
 
 func (sk *ThetaSketch) hash(key string) uint64 {
@@ -99,12 +118,12 @@ func (sk *ThetaSketch) Intersection(other Sketch) Sketch {
 	return union.Sub(skSub).Sub(otherSub)
 }
 
-func (sk *ThetaSketch) copy() Sketch {
-	new_sk := NewThetaSketch(sk.precision).(*ThetaSketch)
-	new_sk.heap = sk.heap.Copy()
-	return new_sk
+func (sk *ThetaSketch) Bytes() []byte {
+	buf := new(bytes.Buffer)
+	val := append([]uint64{uint64(sk.precision)}, sk.heap.data...)
+	_ = binary.Write(buf, binary.BigEndian, val)
+	return buf.Bytes()
 }
-
 
 
 
