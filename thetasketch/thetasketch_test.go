@@ -37,7 +37,11 @@ func TestThetaSketch_Union(t *testing.T) {
 		sk.Add("hello world"+strconv.Itoa(i))
 		other.Add("hello world"+strconv.Itoa(i*2))
 	}
-	newSk := sk.Union(other)
+	newSk, err := sk.Union(other)
+	if err != nil {
+		t.Error(err)
+		return
+	}
 	uniques := newSk.Uniques()
 	diff := (uniques-float64(totalExpected))/float64(totalExpected)
 	fmt.Println("unique id count: ", uniques, ", actual id count: ", totalExpected, ", diff: ", diff)
@@ -60,7 +64,11 @@ func TestThetaSketch_Sub(t *testing.T) {
 		sk.Add("hello world"+strconv.Itoa(i))
 		other.Add("hello world"+strconv.Itoa(i*2))
 	}
-	newSk := sk.Sub(other)
+	newSk, err := sk.Sub(other)
+	if err != nil {
+		t.Error(err)
+		return
+	}
 	uniques := newSk.Uniques()
 	diff := (uniques-float64(subExpected))/float64(subExpected)
 	fmt.Println("unique id count: ", uniques, ", actual id count: ", subExpected, ", diff: ", diff)
@@ -83,7 +91,11 @@ func TestThetaSketch_Intersection(t *testing.T) {
 		sk.Add("hello world"+strconv.Itoa(i))
 		other.Add("hello world"+strconv.Itoa(i*2))
 	}
-	newSk := sk.Intersection(other)
+	newSk, err := sk.Intersection(other)
+	if err != nil {
+		t.Error(err)
+		return
+	}
 	uniques := newSk.Uniques()
 	diff := (uniques-float64(intersecionExpected))/float64(intersecionExpected)
 	fmt.Println("unique id count: ", uniques, ", actual id count: ", intersecionExpected, ", diff: ", diff)

@@ -2,6 +2,7 @@ package thetasketch
 
 import (
 	"bytes"
+	"datasketch"
 	"encoding/binary"
 	"fmt"
 	"github.com/spaolacci/murmur3"
@@ -12,24 +13,13 @@ import (
 const UpperBound uint64 = math.MaxUint64
 const DefaultPrecision = 4096
 
-
-type Sketch interface {
-	Add(string)
-	Uniques() float64
-	Union(Sketch) Sketch
-	Sub(Sketch) Sketch
-	Intersection(Sketch) Sketch
-	Bytes() []byte
-}
-
-
 type ThetaSketch struct {
 	precision int
 	heap    UintHeap
 	hashObj hash.Hash64
 }
 
-func NewThetaSketch(precision int) Sketch {
+func NewThetaSketch(precision int) datasketch.Sketch {
 	if precision < DefaultPrecision {
 		precision = DefaultPrecision
 	}
@@ -37,7 +27,7 @@ func NewThetaSketch(precision int) Sketch {
 	return &ThetaSketch{precision:precision, heap:NewHeap(precision), hashObj:murmur3.New64()}
 }
 
-func NewThetaSketchFromBytes(input []byte) (Sketch, error) {
+func NewThetaSketchFromBytes(input []byte) (datasketch.Sketch, error) {
 	if len(input) % 8 != 0 {
 		return nil, fmt.Errorf("invalid length thetasketch bytes")
 	}
@@ -72,11 +62,11 @@ func (sk *ThetaSketch) Uniques() float64 {
 	return float64(sk.heap.Len())*(float64(UpperBound)/float64(UpperBound-peak))
 }
 
-func (sk *ThetaSketch) Union(other Sketch) Sketch {
+func (sk *ThetaSketch) Union(other datasketch.Sketch) (datasketch.Sketch, error) {
 	var otherTheta *ThetaSketch
 	var ok bool
 	if otherTheta, ok = other.(*ThetaSketch); !ok {
-		return nil
+		return nil, datasketch.NoCompatibleTypeError(sk.String(), other.String(), "union")
 	}
 	heap := NewHeap(sk.precision)
 	for _, n := range sk.heap.Items() {
@@ -87,14 +77,14 @@ func (sk *ThetaSketch) Union(other Sketch) Sketch {
 	}
 	retSketch := NewThetaSketch(sk.precision).(*ThetaSketch)
 	retSketch.heap = heap
-	return retSketch
+	return retSketch, nil
 }
 
-func (sk *ThetaSketch) Sub(other Sketch) Sketch {
+func (sk *ThetaSketch) Sub(other datasketch.Sketch) (datasketch.Sketch, error) {
 	var otherTheta *ThetaSketch
 	var ok bool
 	if otherTheta, ok = other.(*ThetaSketch); !ok {
-		return nil
+		return nil, datasketch.NoCompatibleTypeError(sk.String(), other.String(), "sub")
 	}
 	in := make([]uint64, 0)
 	for _, n := range sk.heap.Items() {
@@ -108,14 +98,18 @@ func (sk *ThetaSketch) Sub(other Sketch) Sketch {
 	for _, e := range in {
 		retSketch.heap.Push(e)
 	}
-	return retSketch
+	return retSketch, nil
 }
 
-func (sk *ThetaSketch) Intersection(other Sketch) Sketch {
-	union := sk.Union(other)
-	skSub := sk.Sub(other)
-	otherSub := other.Sub(sk)
-	return union.Sub(skSub).Sub(otherSub)
+func (sk *ThetaSketch) Intersection(other datasketch.Sketch) (datasketch.Sketch, error) {
+	union, err := sk.Union(other)
+	if err != nil {
+		return nil, err
+	}
+	skSub, _ := sk.Sub(other)
+	otherSub, _ := other.Sub(sk)
+	unionSub, _ := union.Sub(skSub)
+	return unionSub.Sub(otherSub)
 }
 
 func (sk *ThetaSketch) Bytes() []byte {
@@ -123,6 +117,10 @@ func (sk *ThetaSketch) Bytes() []byte {
 	val := append([]uint64{uint64(sk.precision)}, sk.heap.data...)
 	_ = binary.Write(buf, binary.BigEndian, val)
 	return buf.Bytes()
+}
+
+func (sk *ThetaSketch) String() string {
+	return "thetasketch"
 }
 
 
